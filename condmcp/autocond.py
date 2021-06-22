@@ -37,39 +37,46 @@ class Conditionner:
     def connect_pvs(self):
         self.cond_logger.info('Connection to PVs')
         self.pv_read_voltage_mcp = PV(
-            '{}{}VoltageMCP_RBV'.format(self.P, self.R))
+            '{}mod_1:ch_{}:MeasVoltage'.format(self.P, self.R))
         if self.pv_read_voltage_mcp.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
-                '{}{}VoltageMCP_RBV'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:MeasVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
-                '{}{}VoltageMCP_RBV'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:MeasVoltage'.format(self.P, self.R)))
         self.pv_read_voltage_phos = PV(
-            '{}{}VoltagePhos_RBV'.format(self.P, self.R))
-        if self.pv_read_voltage_mcp.wait_for_connection(5) == False:
+            '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R))
+        if self.pv_read_voltage_phos.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
-                '{}{}VoltagePhos_RBV'.format(self.P, self.R)))
+                '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
-                '{}{}VoltagePhos_RBV'.format(self.P, self.R)))
-        self.pv_write_voltage_mcp = PV('{}{}VoltageMCP'.format(self.P, self.R))
-        if self.pv_read_voltage_mcp.wait_for_connection(5) == False:
+                '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R)))
+        self.pv_write_voltage_mcp = PV('{}mod_1:ch_{}:setVoltage'.format(self.P, self.R))
+        if self.pv_write_voltage_mcp.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
-                '{}{}VoltageMCP'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:setVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
-                '{}{}VoltageMCP'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:setVoltage'.format(self.P, self.R)))
         self.pv_write_voltage_phos = PV(
-            '{}{}VoltagePhos'.format(self.P, self.R))
-        if self.pv_read_voltage_mcp.wait_for_connection(5) == False:
+            '{}mod_0:ch_{}:setVoltage'.format(self.P, self.R))
+        if self.pv_write_voltage_phos.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
-                '{}{}VoltagePhos'.format(self.P, self.R)))
+                '{}mod_0:ch_{}:setVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
-                '{}{}VoltagePhos'.format(self.P, self.R)))
+                '{}mod_0:ch_{}:setVoltage'.format(self.P, self.R)))
         self.pv_read_ramp = PV(
-            '{}{}Ramp_RBV'.format(self.P, self.R))
+            '{}mod_1:ch_{}:Status:rampUp'.format(self.P, self.R))
         if self.pv_read_ramp.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
-                '{}{}Ramp_RBV'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:Status:rampUp'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
-                '{}{}Ramp_RBV'.format(self.P, self.R)))
+                '{}mod_1:ch_{}:Status:rampUp'.format(self.P, self.R)))
+        self.pv_read_ramp_phos = PV(
+            '{}mod_0:ch_{}:Status:rampUp'.format(self.P, self.R))
+        if self.pv_read_ramp_phos.wait_for_connection(5) == False:
+            self.cond_logger.error('Failed to connect to PV: {}'.format(
+                '{}mod_0:ch_{}:Status:rampUp'.format(self.P, self.R)))
+            raise IOError('Failed to connect to PV: {}'.format(
+                '{}mod_0:ch_{}:Status:rampUp'.format(self.P, self.R)))
 
     def init_logger(self):
         self.cond_logger = logging.getLogger(self.name + 'logger')
@@ -115,7 +122,7 @@ class Conditionner:
     def check_ramping(self, state):
         self.cond_logger.info('Check ramping')
         nbtry = 10
-        while self.pv_read_ramp.get():
+        while self.pv_read_ramp.get() or self.pv_read_ramp_phos.get():
             self.cond_logger.warning(
                 'Waiting end of ramping. Try {}'.format(nbtry))
             nbtry = nbtry-1

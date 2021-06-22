@@ -4,12 +4,12 @@ from multiprocessing import Pool
 
 
 def task(ind):
-    conditionner = ac.Conditionner('COND:', 'MCP' + str(ind) + ':', 'seq.csv')
+    conditionner = ac.Conditionner('MPOD:', str(ind), 'seq.csv')
 
 
 def main():
-    with Pool(2) as p:
-        p.map(task, [1])
+    with Pool(4) as p:
+        p.map(task, [0,1])
     return 0
 
 
