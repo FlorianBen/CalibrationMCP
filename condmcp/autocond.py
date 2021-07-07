@@ -8,6 +8,7 @@ import queue
 import time
 import datetime
 
+
 class State:
     def __init__(self, ind, Vmcp, Vphos, dT) -> None:
         self.ind = ind
@@ -43,6 +44,13 @@ class Conditionner:
                 '{}mod_1:ch_{}:MeasVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
                 '{}mod_1:ch_{}:MeasVoltage'.format(self.P, self.R)))
+        self.pv_read_current_mcp = PV(
+            '{}mod_1:ch_{}:MeasCurrent'.format(self.P, self.R))
+        if self.pv_read_current_mcp.wait_for_connection(5) == False:
+            self.cond_logger.error('Failed to connect to PV: {}'.format(
+                '{}mod_1:ch_{}:MeasCurrent'.format(self.P, self.R)))
+            raise IOError('Failed to connect to PV: {}'.format(
+                '{}mod_1:ch_{}:MeasCurrent'.format(self.P, self.R)))
         self.pv_read_voltage_phos = PV(
             '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R))
         if self.pv_read_voltage_phos.wait_for_connection(5) == False:
@@ -50,7 +58,15 @@ class Conditionner:
                 '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R)))
             raise IOError('Failed to connect to PV: {}'.format(
                 '{}mod_0:ch_{}:MeasVoltage'.format(self.P, self.R)))
-        self.pv_write_voltage_mcp = PV('{}mod_1:ch_{}:setVoltage'.format(self.P, self.R))
+        self.pv_read_current_phos = PV(
+            '{}mod_0:ch_{}:MeasCurrent'.format(self.P, self.R))
+        if self.pv_read_current_phos.wait_for_connection(5) == False:
+            self.cond_logger.error('Failed to connect to PV: {}'.format(
+                '{}mod_0:ch_{}:MeasCurrent'.format(self.P, self.R)))
+            raise IOError('Failed to connect to PV: {}'.format(
+                '{}mod_0:ch_{}:MeasCurrent'.format(self.P, self.R)))
+        self.pv_write_voltage_mcp = PV(
+            '{}mod_1:ch_{}:setVoltage'.format(self.P, self.R))
         if self.pv_write_voltage_mcp.wait_for_connection(5) == False:
             self.cond_logger.error('Failed to connect to PV: {}'.format(
                 '{}mod_1:ch_{}:setVoltage'.format(self.P, self.R)))
@@ -183,7 +199,8 @@ class Conditionner:
                 time_meas = time.time()
                 #epoch_str = datetime.datetime.fromtimestamp(time_meas).strftime('%c')
                 condT = time_meas < timeout_start + timeout
-                measwriter.writerow([time_meas, self.get_voltage_mcp(), self.get_voltage_phos()])
+                measwriter.writerow(
+                    [time_meas, self.get_voltage_mcp(), self.get_voltage_phos(), self.get_current_mcp(), self.get_current_phos()])
                 sleep(self.dT_checking)
 
         self.cond_logger.info(
@@ -211,8 +228,22 @@ class Conditionner:
     def get_voltage_phos(self):
         res = self.pv_read_voltage_phos.get()
         if res == None:
-            self.cond_logger.error('Failed to put Phos voltage!')
-            raise IOError('Failed to put Phos voltage!')
+            self.cond_logger.error('Failed to get Phos voltage!')
+            raise IOError('Failed to get Phos voltage!')
+        return res
+
+    def get_current_mcp(self):
+        res = self.pv_read_current_mcp.get()
+        if res == None:
+            self.cond_logger.error('Failed to get MCP current!')
+            raise IOError('Failed to get MCP current!')
+        return res
+
+    def get_current_phos(self):
+        res = self.pv_read_current_phos.get()
+        if res == None:
+            self.cond_logger.error('Failed to get Phos current!')
+            raise IOError('Failed to get Phos current!')
         return res
 
     def check_error_mcp(self):
