@@ -7,7 +7,8 @@ import csv
 import queue
 import time
 import datetime
-
+import smtplib
+from email.utils import formatdate
 
 class State:
     def __init__(self, ind, Vmcp, Vphos, dT) -> None:
@@ -29,7 +30,10 @@ class Conditionner:
         self.out_dir = self.name + 'meas/'
         self.tol = 30
         self.dT_checking = 1.0
+        self.dT_wait = 6
+        self.dT_stabilization = 6
         self.init_logger()
+        self.init_mailer()
         self.init_out_directory()
         self.connect_pvs()
         self.read_seq()
@@ -103,6 +107,11 @@ class Conditionner:
         self.cond_logger.addHandler(self.handler)
         self.cond_logger.info('Logger correctly created.')
 
+    def init_mailer(self):
+        self.mail_server = smtplib.SMTP('mx.extra.cea.fr')
+        self.mail_server.connect('mx.extra.cea.fr')
+        self.cond_logger.info('Mailer correctly created.')
+
     def init_out_directory(self):
         makedirs(self.out_dir, exist_ok=True)
 
@@ -124,16 +133,18 @@ class Conditionner:
             state = self.states.get()
             self.cond_logger.info('Get state {}'.format(state.ind))
             self.process_state(state)
-
+        self.set_voltage_mcp(0)
+        self.set_voltage_phos(0)
         self.cond_logger.info('Conditionning done.')
 
     def process_state(self, state):
         self.set_voltage_mcp(state.Vmcp)
         self.set_voltage_phos(state.Vphos)
+        sleep(self.dT_wait)
         self.check_ramping(state)
         self.check_state(state)
         self.measure_state(state)
-        sleep(1)
+        sleep(self.dT_wait)
 
     def check_ramping(self, state):
         self.cond_logger.info('Check ramping')
@@ -145,10 +156,10 @@ class Conditionner:
             if nbtry == 0:
                 self.cond_logger.error('Failed to ramp!')
                 raise IOError('Failed to ramp!')
-            sleep(2)
+            sleep(self.dT_wait)
         self.cond_logger.info(
-            'Ramping done. Wait 2 seconds for voltage stabilization.')
-        sleep(2)
+            'Ramping done. Wait {} seconds for voltage stabilization.'.format(self.dT_stabilization))
+        sleep(self.dT_stabilization)
 
     def check_state(self, state):
         self.cond_logger.info('Check state')
@@ -182,14 +193,15 @@ class Conditionner:
             if nbtry == 0:
                 self.cond_logger.error('Failed to put correct voltage!')
                 raise IOError('Failed to put correct voltage!')
-            sleep(2)
+            sleep(self.dT_wait)
+        self.send_mail(state)
         self.cond_logger.info(
             'Voltage corresponding to state. Ready for measurement')
 
     def measure_state(self, state):
         self.cond_logger.info(
-            'Measure state {} for {} secondes'.format(state.ind, state.dT * 5))
-        timeout = state.dT * 5
+            'Measure state {} for {} secondes'.format(state.ind, state.dT * 60))
+        timeout = state.dT * 60
 
         with open(self.out_dir + 'state_' + str(state.ind).zfill(3) + '.csv', 'w', newline='') as csvfile:
             measwriter = csv.writer(csvfile, delimiter=',')
@@ -251,3 +263,23 @@ class Conditionner:
 
     def check_error_phos(self):
         pass
+
+    def send_mail(self, state):
+        fromaddr = 'Florian Benedetti <florian.benedetti@cea.fr>'
+        toaddrs = ['florian.benedetti@cea.fr','jacques.marroncle@cea.fr']
+        sujet = "CONDMCP {} {}".format(self.P, self.R)
+        message = "State {} [Vmcp={} V | Vphos={} V] ready for measurement for {} minutes".format(state.ind,state.Vmcp,state.Vphos,state.dT)
+        msg = """\
+        From: %s\r\n\
+        To: %s\r\n\
+        Subject: %s\r\n\
+        Date: %s\r\n\
+        \r\n\
+        %s
+        """ % (fromaddr, ", ".join(toaddrs), sujet, formatdate(localtime=True), message)
+        try:
+            self.mail_server.sendmail(fromaddr, toaddrs, msg)
+        except smtplib.SMTPException as e:
+            self.cond_logger.error('Failed to send email {}'.format(e))
+            return
+        self.cond_logger.info('Mail sended succesfuly')

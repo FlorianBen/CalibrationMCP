@@ -9,7 +9,7 @@ def task(ind):
 
 def main():
     with Pool(4) as p:
-        p.map(task, [0,1])
+        p.map(task, [0])
     return 0
 
 
