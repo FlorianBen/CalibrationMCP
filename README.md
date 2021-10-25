@@ -42,4 +42,4 @@ tail -f MPOD_0.log
 
 ## Output
 
-A directory is created for each. In this directory, the program will create measurement files with CSV format for each step.
+A directory is created for each conditioning process. In this directory, the program will create measurement files with CSV format for each step.
