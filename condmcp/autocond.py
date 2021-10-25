@@ -9,6 +9,8 @@ import time
 import datetime
 import smtplib
 from email.utils import formatdate
+from email.message import EmailMessage
+
 
 class State:
     def __init__(self, ind, Vmcp, Vphos, dT) -> None:
@@ -35,9 +37,12 @@ class Conditionner:
         self.init_logger()
         self.init_mailer()
         self.init_out_directory()
-        self.connect_pvs()
-        self.read_seq()
-        self.run()
+        try:
+            self.connect_pvs()
+            self.read_seq()
+            self.run()
+        except IOError as err:
+            self.send_exception_main(err)
 
     def connect_pvs(self):
         self.cond_logger.info('Connection to PVs')
@@ -265,20 +270,28 @@ class Conditionner:
         pass
 
     def send_mail(self, state):
-        fromaddr = 'Florian Benedetti <florian.benedetti@cea.fr>'
-        toaddrs = ['florian.benedetti@cea.fr','jacques.marroncle@cea.fr']
-        sujet = "CONDMCP {} {}".format(self.P, self.R)
-        message = "State {} [Vmcp={} V | Vphos={} V] ready for measurement for {} minutes".format(state.ind,state.Vmcp,state.Vphos,state.dT)
-        msg = """\
-        From: %s\r\n\
-        To: %s\r\n\
-        Subject: %s\r\n\
-        Date: %s\r\n\
-        \r\n\
-        %s
-        """ % (fromaddr, ", ".join(toaddrs), sujet, formatdate(localtime=True), message)
+        msg = EmailMessage()
+        msg['Subject'] = "CONDMCP {} {}".format(self.P, self.R)
+        msg['From'] = "ess-npm.mcp@cea.fr"
+        msg['To'] = ['florian.benedetti@cea.fr']
+        message = "State {} [Vmcp={} V | Vphos={} V] ready for measurement for {} minutes".format(
+            state.ind, state.Vmcp, state.Vphos, state.dT)
+        msg.set_content(message)
         try:
-            self.mail_server.sendmail(fromaddr, toaddrs, msg)
+            self.mail_server.send_message(msg)
+        except smtplib.SMTPException as e:
+            self.cond_logger.error('Failed to send email {}'.format(e))
+            return
+        self.cond_logger.info('Mail sended succesfuly')
+
+    def send_exception_main(self, exception):
+        msg = EmailMessage()
+        msg['Subject'] = 'MCPcond Exception'
+        msg['From'] = "ess-npm.mcp@cea.fr"
+        msg['To'] = ['florian.benedetti@cea.fr']
+        msg.set_content("Exception: {}".format(exception))
+        try:
+            self.mail_server.send_message(msg)
         except smtplib.SMTPException as e:
             self.cond_logger.error('Failed to send email {}'.format(e))
             return
